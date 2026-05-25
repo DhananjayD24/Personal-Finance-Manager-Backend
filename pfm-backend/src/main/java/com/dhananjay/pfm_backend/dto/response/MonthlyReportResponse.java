@@ -1,0 +1,24 @@
+package com.dhananjay.pfm_backend.dto.response;
+
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.util.Map;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class MonthlyReportResponse {
+
+    private int month;
+
+    private int year;
+
+    private Map<String, BigDecimal> totalIncome;
+
+    private Map<String, BigDecimal> totalExpenses;
+
+    private BigDecimal netSavings;
+}

@@ -1,26 +1,22 @@
 package com.dhananjay.pfm_backend.dto.request;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TransactionRequest {
+public class UpdateTransactionRequest {
 
     @NotNull(message = "Amount is required")
     @Positive(message = "Amount must be positive")
     private BigDecimal amount;
-
-    @NotNull(message = "Date is required")
-    @PastOrPresent(message = "Date cannot be future")
-    private LocalDate date;
 
     @NotNull(message = "Category id is required")
     private Long categoryId;
