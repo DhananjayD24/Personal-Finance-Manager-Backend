@@ -45,7 +45,7 @@ public class SecurityConfig {
                                 "/h2-console/**"
                         ).permitAll()
 
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
 
                 .headers(headers ->

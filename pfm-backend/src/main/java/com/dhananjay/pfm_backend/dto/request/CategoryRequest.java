@@ -12,12 +12,11 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
 public class CategoryRequest {
 
     @NotBlank(message = "Category name is required")
     private String name;
 
-    @NotNull(message = "Transaction type is required")
+    @NotNull(message = "Category type is required")
     private TransactionType type;
 }
