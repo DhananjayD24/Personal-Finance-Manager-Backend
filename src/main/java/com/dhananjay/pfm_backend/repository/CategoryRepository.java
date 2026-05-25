@@ -22,4 +22,11 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findByType(TransactionType type);
 
     Optional<Category> findByIdAndUser(Long id, User user);
+
+    Optional<Category> findByNameIgnoreCase(
+        String name);
+
+    Optional<Category> findFirstByType(
+        TransactionType type);
+        
 }

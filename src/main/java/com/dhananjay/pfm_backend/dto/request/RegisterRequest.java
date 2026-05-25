@@ -22,15 +22,8 @@ public class RegisterRequest {
     @NotBlank(message = "Password is required")
 
     @Size(
-            min = 8,
-            message = "Password must be at least 8 characters")
-
-    @Pattern(
-            regexp =
-                    "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d).*$",
-
-            message =
-                    "Password must contain uppercase, lowercase and number")
+            min = 6,
+            message = "Password must be at least 6 characters")
     private String password;
 
     @NotBlank(message = "Full name is required")
@@ -39,7 +32,7 @@ public class RegisterRequest {
     @NotBlank(message = "Phone number is required")
 
     @Pattern(
-            regexp = "^[0-9]{10}$",
-            message = "Phone number must be exactly 10 digits")
+            regexp = "^[+]?[0-9]{10,15}$",
+            message = "Phone number must be valid")
     private String phoneNumber;
 }

@@ -26,211 +26,277 @@ import com.dhananjay.pfm_backend.dto.response.MessageResponse;
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl
-        implements TransactionService {
+                implements TransactionService {
 
-    private final TransactionRepository transactionRepository;
+        private final TransactionRepository transactionRepository;
 
-    private final CategoryRepository categoryRepository;
+        private final CategoryRepository categoryRepository;
 
-    private final UserRepository userRepository;
+        private final UserRepository userRepository;
 
-    @Override
-    public TransactionResponse createTransaction(
-            TransactionRequest request,
-            Long userId) {
+        @Override
+        public TransactionResponse createTransaction(
+                        TransactionRequest request,
+                        Long userId) {
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found"));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User not found"));
 
-        Category category = categoryRepository.findById(
-                request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Category not found"));
+                Category category;
 
-        // CATEGORY ACCESS VALIDATION
-        if (category.getUser() != null &&
-                !category.getUser().getId().equals(userId)) {
+                // CATEGORY ID
+                if (request.getCategoryId() != null) {
 
-            throw new UnauthorizedException(
-                    "You cannot use this category");
+                        category = categoryRepository.findById(
+                                        request.getCategoryId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
+                }
+
+                // CATEGORY NAME
+                else if (request.getCategory() != null &&
+                                !request.getCategory().isBlank()) {
+
+                        category = categoryRepository
+                                        .findByNameIgnoreCase(
+                                                        request.getCategory())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
+                }
+
+                // TYPE ONLY
+                else if (request.getType() != null) {
+
+                        category = categoryRepository
+                                        .findFirstByType(
+                                                        request.getType())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
+                }
+
+                else {
+
+                        throw new ResourceNotFoundException(
+                                        "Category is required");
+                }
+
+                // CATEGORY ACCESS VALIDATION
+                if (category.getUser() != null &&
+                                !category.getUser().getId().equals(userId)) {
+
+                        throw new UnauthorizedException(
+                                        "You cannot use this category");
+                }
+
+                Transaction transaction = Transaction.builder()
+                                .amount(request.getAmount())
+                                .date(request.getDate())
+                                .description(request.getDescription())
+                                .category(category)
+                                .user(user)
+                                .build();
+
+                Transaction savedTransaction = transactionRepository.save(transaction);
+
+                return TransactionResponse.builder()
+                                .id(savedTransaction.getId())
+                                .amount(savedTransaction.getAmount())
+                                .date(savedTransaction.getDate())
+                                .category(savedTransaction
+                                                .getCategory()
+                                                .getName())
+                                .type(savedTransaction
+                                                .getCategory()
+                                                .getType())
+                                .description(savedTransaction.getDescription())
+                                .build();
         }
 
-        Transaction transaction = Transaction.builder()
-                .amount(request.getAmount())
-                .date(request.getDate())
-                .description(request.getDescription())
-                .category(category)
-                .user(user)
-                .build();
+        @Override
+        public List<TransactionResponse> getAllTransactions(
+                        Long userId,
+                        java.time.LocalDate startDate,
+                        java.time.LocalDate endDate,
+                        Long categoryId) {
 
-        Transaction savedTransaction = transactionRepository.save(transaction);
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User not found"));
 
-        return TransactionResponse.builder()
-                .id(savedTransaction.getId())
-                .amount(savedTransaction.getAmount())
-                .date(savedTransaction.getDate())
-                .category(savedTransaction
-                        .getCategory()
-                        .getName())
-                .type(savedTransaction
-                        .getCategory()
-                        .getType())
-                .description(savedTransaction.getDescription())
-                .build();
-    }
+                List<Transaction> transactions;
 
-    @Override
-    public List<TransactionResponse> getAllTransactions(
-            Long userId,
-            java.time.LocalDate startDate,
-            java.time.LocalDate endDate,
-            Long categoryId) {
+                // FILTER: CATEGORY + DATE
+                if (categoryId != null &&
+                                startDate != null &&
+                                endDate != null) {
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found"));
+                        Category category = categoryRepository.findById(categoryId)
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
 
-        List<Transaction> transactions;
+                        transactions = transactionRepository
+                                        .findByUserAndCategoryAndDateBetween(
+                                                        user,
+                                                        category,
+                                                        startDate,
+                                                        endDate);
 
-        // FILTER: CATEGORY + DATE
-        if (categoryId != null &&
-                startDate != null &&
-                endDate != null) {
+                }
 
-            Category category = categoryRepository.findById(categoryId)
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Category not found"));
+                // FILTER: DATE ONLY
+                else if (startDate != null &&
+                                endDate != null) {
 
-            transactions = transactionRepository
-                    .findByUserAndCategoryAndDateBetween(
-                            user,
-                            category,
-                            startDate,
-                            endDate);
+                        transactions = transactionRepository
+                                        .findByUserAndDateBetween(
+                                                        user,
+                                                        startDate,
+                                                        endDate);
+                }
 
+                // FILTER: CATEGORY ONLY
+                else if (categoryId != null) {
+
+                        Category category = categoryRepository.findById(categoryId)
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
+
+                        transactions = transactionRepository
+                                        .findByUserAndCategory(
+                                                        user,
+                                                        category);
+                }
+
+                // NO FILTER
+                else {
+
+                        transactions = transactionRepository.findByUser(user);
+                }
+
+                return transactions.stream()
+                                .map(transaction -> TransactionResponse.builder()
+                                                .id(transaction.getId())
+                                                .amount(transaction.getAmount())
+                                                .date(transaction.getDate())
+                                                .category(transaction
+                                                                .getCategory()
+                                                                .getName())
+                                                .type(transaction
+                                                                .getCategory()
+                                                                .getType())
+                                                .description(
+                                                                transaction.getDescription())
+                                                .build())
+                                .toList();
         }
 
-        // FILTER: DATE ONLY
-        else if (startDate != null &&
-                endDate != null) {
+        @Override
+        public TransactionResponse updateTransaction(
+                        Long transactionId,
+                        UpdateTransactionRequest request,
+                        Long userId) {
 
-            transactions = transactionRepository
-                    .findByUserAndDateBetween(
-                            user,
-                            startDate,
-                            endDate);
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User not found"));
+
+                Transaction transaction = transactionRepository.findByIdAndUser(
+                                transactionId,
+                                user)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Transaction not found"));
+
+                // UPDATE AMOUNT
+                if (request.getAmount() != null) {
+
+                        transaction.setAmount(
+                                        request.getAmount());
+                }
+
+                // UPDATE DESCRIPTION
+                if (request.getDescription() != null) {
+
+                        transaction.setDescription(
+                                        request.getDescription());
+                }
+
+                // CATEGORY UPDATE
+                Category category = null;
+
+                if (request.getCategoryId() != null) {
+
+                        category = categoryRepository.findById(
+                                        request.getCategoryId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
+                }
+
+                else if (request.getCategory() != null &&
+                                !request.getCategory().isBlank()) {
+
+                        category = categoryRepository
+                                        .findByNameIgnoreCase(
+                                                        request.getCategory())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
+                }
+
+                else if (request.getType() != null) {
+
+                        category = categoryRepository
+                                        .findFirstByType(
+                                                        request.getType())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category not found"));
+                }
+
+                // APPLY CATEGORY IF PROVIDED
+                if (category != null) {
+
+                        transaction.setCategory(category);
+                }
+
+                // IGNORE DATE FIELD INTENTIONALLY
+
+                Transaction updatedTransaction = transactionRepository.save(transaction);
+
+                return TransactionResponse.builder()
+                                .id(updatedTransaction.getId())
+                                .amount(updatedTransaction.getAmount())
+                                .date(updatedTransaction.getDate())
+                                .category(updatedTransaction
+                                                .getCategory()
+                                                .getName())
+                                .type(updatedTransaction
+                                                .getCategory()
+                                                .getType())
+                                .description(
+                                                updatedTransaction.getDescription())
+                                .build();
         }
 
-        // FILTER: CATEGORY ONLY
-        else if (categoryId != null) {
+        @Override
+        public MessageResponse deleteTransaction(
+                        Long transactionId,
+                        Long userId) {
 
-            Category category = categoryRepository.findById(categoryId)
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Category not found"));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User not found"));
 
-            transactions = transactionRepository
-                    .findByUserAndCategory(
-                            user,
-                            category);
+                Transaction transaction = transactionRepository.findByIdAndUser(
+                                transactionId,
+                                user)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Transaction not found"));
+
+                transactionRepository.delete(transaction);
+
+                transactionRepository.flush();
+
+                return MessageResponse.builder()
+                                .message("Transaction deleted successfully")
+                                .build();
         }
-
-        // NO FILTER
-        else {
-
-            transactions = transactionRepository.findByUser(user);
-        }
-
-        return transactions.stream()
-                .map(transaction -> TransactionResponse.builder()
-                        .id(transaction.getId())
-                        .amount(transaction.getAmount())
-                        .date(transaction.getDate())
-                        .category(transaction
-                                .getCategory()
-                                .getName())
-                        .type(transaction
-                                .getCategory()
-                                .getType())
-                        .description(
-                                transaction.getDescription())
-                        .build())
-                .toList();
-    }
-
-    @Override
-    public TransactionResponse updateTransaction(
-            Long transactionId,
-            UpdateTransactionRequest request,
-            Long userId) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found"));
-
-        Transaction transaction = transactionRepository.findByIdAndUser(
-                transactionId,
-                user)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Transaction not found"));
-
-        Category category = categoryRepository.findById(
-                request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Category not found"));
-
-        // CATEGORY OWNERSHIP CHECK
-        if (category.getUser() != null &&
-                !category.getUser().getId().equals(userId)) {
-
-            throw new UnauthorizedException(
-                    "You cannot use this category");
-        }
-
-        // UPDATE FIELDS
-        transaction.setAmount(request.getAmount());
-
-        transaction.setCategory(category);
-
-        transaction.setDescription(
-                request.getDescription());
-
-        Transaction updatedTransaction = transactionRepository.save(transaction);
-
-        return TransactionResponse.builder()
-                .id(updatedTransaction.getId())
-                .amount(updatedTransaction.getAmount())
-                .date(updatedTransaction.getDate())
-                .category(updatedTransaction
-                        .getCategory()
-                        .getName())
-                .type(updatedTransaction
-                        .getCategory()
-                        .getType())
-                .description(
-                        updatedTransaction.getDescription())
-                .build();
-    }
-
-    @Override
-    public MessageResponse deleteTransaction(
-            Long transactionId,
-            Long userId) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found"));
-
-        Transaction transaction = transactionRepository.findByIdAndUser(
-                transactionId,
-                user)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Transaction not found"));
-
-        transactionRepository.delete(transaction);
-
-        return MessageResponse.builder()
-                .message("Transaction deleted successfully")
-                .build();
-    }
 }
