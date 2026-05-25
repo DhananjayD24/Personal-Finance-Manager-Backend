@@ -2,7 +2,7 @@ package com.dhananjay.pfm_backend.controller;
 
 import com.dhananjay.pfm_backend.dto.request.CategoryRequest;
 import com.dhananjay.pfm_backend.dto.response.CategoryResponse;
-
+import com.dhananjay.pfm_backend.dto.response.MessageResponse;
 import com.dhananjay.pfm_backend.exception.UnauthorizedException;
 
 import com.dhananjay.pfm_backend.service.CategoryService;
@@ -25,49 +25,64 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CategoryController {
 
-    private final CategoryService categoryService;
+        private final CategoryService categoryService;
 
-    @PostMapping
-    public ResponseEntity<CategoryResponse> createCategory(
-            @Valid @RequestBody CategoryRequest request,
-            HttpSession session) {
+        @PostMapping
+        public ResponseEntity<CategoryResponse> createCategory(
+                        @Valid @RequestBody CategoryRequest request,
+                        HttpSession session) {
 
-        Long userId =
-                (Long) session.getAttribute("userId");
+                Long userId = (Long) session.getAttribute("userId");
 
-        if (userId == null) {
+                if (userId == null) {
 
-            throw new UnauthorizedException(
-                    "User not logged in");
+                        throw new UnauthorizedException(
+                                        "User not logged in");
+                }
+
+                CategoryResponse response = categoryService.createCategory(
+                                request,
+                                userId);
+
+                return new ResponseEntity<>(
+                                response,
+                                HttpStatus.CREATED);
         }
 
-        CategoryResponse response =
-                categoryService.createCategory(
-                        request,
-                        userId);
+        @GetMapping
+        public ResponseEntity<List<CategoryResponse>> getAllCategories(HttpSession session) {
 
-        return new ResponseEntity<>(
-                response,
-                HttpStatus.CREATED);
-    }
+                Long userId = (Long) session.getAttribute("userId");
 
-    @GetMapping
-    public ResponseEntity<List<CategoryResponse>>
-    getAllCategories(HttpSession session) {
+                if (userId == null) {
 
-        Long userId =
-                (Long) session.getAttribute("userId");
+                        throw new UnauthorizedException(
+                                        "User not logged in");
+                }
 
-        if (userId == null) {
+                List<CategoryResponse> response = categoryService.getAllCategories(
+                                userId);
 
-            throw new UnauthorizedException(
-                    "User not logged in");
+                return ResponseEntity.ok(response);
         }
 
-        List<CategoryResponse> response =
-                categoryService.getAllCategories(
-                        userId);
+        @DeleteMapping("/{id}")
+        public ResponseEntity<MessageResponse> deleteCategory(
+                        @PathVariable Long id,
+                        HttpSession session) {
 
-        return ResponseEntity.ok(response);
-    }
+                Long userId = (Long) session.getAttribute("userId");
+
+                if (userId == null) {
+
+                        throw new UnauthorizedException(
+                                        "User not logged in");
+                }
+
+                MessageResponse response = categoryService.deleteCategory(
+                                id,
+                                userId);
+
+                return ResponseEntity.ok(response);
+        }
 }

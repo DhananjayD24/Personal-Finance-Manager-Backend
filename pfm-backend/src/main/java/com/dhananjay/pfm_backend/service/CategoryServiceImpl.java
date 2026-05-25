@@ -8,7 +8,7 @@ import com.dhananjay.pfm_backend.entity.User;
 
 import com.dhananjay.pfm_backend.exception.DuplicateResourceException;
 import com.dhananjay.pfm_backend.exception.ResourceNotFoundException;
-
+import com.dhananjay.pfm_backend.exception.UnauthorizedException;
 import com.dhananjay.pfm_backend.repository.CategoryRepository;
 import com.dhananjay.pfm_backend.repository.UserRepository;
 
@@ -18,74 +18,107 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import com.dhananjay.pfm_backend.dto.response.MessageResponse;
+
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl
-        implements CategoryService {
+                implements CategoryService {
 
-    private final CategoryRepository categoryRepository;
+        private final CategoryRepository categoryRepository;
 
-    private final UserRepository userRepository;
+        private final UserRepository userRepository;
 
-    @Override
-    public CategoryResponse createCategory(
-            CategoryRequest request,
-            Long userId) {
+        @Override
+        public CategoryResponse createCategory(
+                        CategoryRequest request,
+                        Long userId) {
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found"));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User not found"));
 
-        boolean exists =
-                categoryRepository.existsByNameAndUser(
-                        request.getName(),
-                        user);
+                boolean exists = categoryRepository.existsByNameAndUser(
+                                request.getName(),
+                                user);
 
-        if (exists) {
+                if (exists) {
 
-            throw new DuplicateResourceException(
-                    "Category already exists");
+                        throw new DuplicateResourceException(
+                                        "Category already exists");
+                }
+
+                Category category = Category.builder()
+                                .name(request.getName())
+                                .type(request.getType())
+                                .isCustom(true)
+                                .user(user)
+                                .build();
+
+                Category savedCategory = categoryRepository.save(category);
+
+                return CategoryResponse.builder()
+                                .id(savedCategory.getId())
+                                .name(savedCategory.getName())
+                                .type(savedCategory.getType())
+                                .isCustom(savedCategory.isCustom())
+                                .build();
         }
 
-        Category category = Category.builder()
-                .name(request.getName())
-                .type(request.getType())
-                .isCustom(true)
-                .user(user)
-                .build();
+        @Override
+        public List<CategoryResponse> getAllCategories(
+                        Long userId) {
 
-        Category savedCategory =
-                categoryRepository.save(category);
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User not found"));
 
-        return CategoryResponse.builder()
-                .id(savedCategory.getId())
-                .name(savedCategory.getName())
-                .type(savedCategory.getType())
-                .isCustom(savedCategory.isCustom())
-                .build();
-    }
+                List<Category> categories = categoryRepository
+                                .findByUserOrUserIsNull(user);
 
-    @Override
-    public List<CategoryResponse> getAllCategories(
-            Long userId) {
+                return categories.stream()
+                                .map(category -> CategoryResponse.builder()
+                                                .id(category.getId())
+                                                .name(category.getName())
+                                                .type(category.getType())
+                                                .isCustom(category.isCustom())
+                                                .build())
+                                .toList();
+        }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found"));
+        @Override
+        public MessageResponse deleteCategory(
+                        Long categoryId,
+                        Long userId) {
 
-        List<Category> categories =
-                categoryRepository
-                        .findByUserOrUserIsNull(user);
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User not found"));
 
-        return categories.stream()
-                .map(category -> CategoryResponse.builder()
-                        .id(category.getId())
-                        .name(category.getName())
-                        .type(category.getType())
-                        .isCustom(category.isCustom())
-                        .build())
-                .toList();
-    }
+                // FIND CATEGORY
+                Category category = categoryRepository.findById(categoryId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Category not found"));
+
+                // DEFAULT CATEGORY CHECK
+                if (!category.isCustom()) {
+
+                        throw new UnauthorizedException(
+                                        "Default categories cannot be deleted");
+                }
+
+                // USER OWNERSHIP CHECK
+                if (category.getUser() == null ||
+                                !category.getUser().getId().equals(userId)) {
+
+                        throw new UnauthorizedException(
+                                        "You cannot delete this category");
+                }
+
+                categoryRepository.delete(category);
+
+                return MessageResponse.builder()
+                                .message("Category deleted successfully")
+                                .build();
+        }
 }
